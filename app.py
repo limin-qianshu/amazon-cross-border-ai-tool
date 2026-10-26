@@ -1,14 +1,13 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from zhipuai import ZhipuAI
-from dotenv import load_dotenv
+from openai import OpenAI
 import os
-import json
 
-# 加载密钥
-load_dotenv()
-client = ZhipuAI(api_key=os.getenv("ZHIPU_API_KEY"))
+client = OpenAI(
+    api_key=os.getenv("ZHIPU_API_KEY"),
+    base_url="https://open.bigmodel.cn/api/paas/v4/"
+)
 
 # ---------------- 页面配置 ----------------
 st.set_page_config(page_title="跨境电商外贸分析助手", layout="wide")
