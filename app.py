@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from openai import OpenAI
 import os
 import json
+from dotenv import load_dotenv
+load_dotenv()
 
 # 智谱API初始化
 client = OpenAI(
@@ -13,10 +15,65 @@ client = OpenAI(
 
 # 页面配置
 st.set_page_config(page_title="跨境电商外贸分析助手", layout="wide")
-st.title("🌐 跨境电商亚马逊评论分析 & 文案合规助手")
+st.markdown("""
+<style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    /* 外层页面U型圆角边框 */
+    .stApp {
+        background-color: #eef1f5;
+    }
+    .block-container {
+        border: 1px solid #a7b0bd;
+        border-radius: 24px;
+        padding: 24px;
+        background: #ffffff;
+        max-width: 95%;
+        margin: 20px auto;
+    }
+    .card{
+        border: 1px solid #c6d8f0;
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 16px;
+        margin: 12px 0px;
+        box-shadow: 0 2px 8px rgba(198, 216, 240, 0.3);
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 12px;
+        border: 1px solid #c6d8f0;
+        padding: 6px 14px;
+        background-color: #f4f8fd;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #c6d8f0 !important;
+        color: #2c4260 !important;
+    }
+    /* 美化按钮、输入框、文本域 */
+    .stButton>button {
+        border-radius: 10px;
+        border: 1px solid #c6d8f0;
+        background: #f4f8fd;
+        color: #2c4260;
+    }
+    .stButton>button:hover {
+        background: #c6d8f0;
+    }
+    .stTextInput>div>div>input,
+    .stTextArea>div>div>textarea {
+        border-radius: 10px;
+        border: 1px solid #c6d8f0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🌐 跨境电商AIGC外贸智能助手")
 tab1, tab2, tab3, tab4 = st.tabs(["📊 评论痛点分析", "📧 询盘邮件生成", "✨ Listing润色", "⚠️ 合规极限词检测"])
 
-# ========== Tab1：评论分析 + 图表 ==========
+# ========== Tab1：评论分析 + 图表 + 运营优化建议 ==========
 with tab1:
     st.subheader("上传买家评论CSV文件，自动提炼痛点并生成分析图")
     uploaded_file = st.file_uploader("上传csv文件", type="csv")
@@ -44,26 +101,48 @@ with tab1:
         res_text = res_text.removeprefix("```json").removesuffix("```")
         res_text = res_text.strip()
         st.text_area("原始返回", res_text, height=200)
-        # 尝试解析json绘图
+
+        # 尝试解析json绘图 + 生成运营建议
         try:
             start_idx = res_text.find("{")
             end_idx = res_text.rfind("}")
             if start_idx >= 0 and end_idx > start_idx:
                 json_str = res_text[start_idx : end_idx + 1]
                 data = json.loads(json_str)
-                # 绘图
+                # ========== 替换后的绘图代码 ==========
                 labels = list(data.keys())
                 values = list(data.values())
-                fig, ax = plt.subplots()
-                ax.bar(labels, values)
-                ax.set_title("Negative Feedback Count")
-                ax.set_ylabel("Count")
-                plt.xticks(rotation=30)
+                fig, ax = plt.subplots(figsize=(10, 5))
+                ax.bar(labels, values, color="#c6d8f0")
+                ax.set_title("Negative Feedback Count", color="#2c4260")
+                ax.set_ylabel("Count", color="#2c4260")
+                # 调整标签：倾斜+右对齐，防止挤在一起
+                plt.xticks(rotation=30, ha='right')
+                # 自动适配布局，把文字完整放进画布
+                plt.tight_layout()
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
                 st.pyplot(fig)
+
+                # 根据痛点数据生成运营优化建议
+                st.markdown("### 💡 基于痛点的产品&运营优化建议")
+                with st.spinner("正在根据痛点图表生成优化方案..."):
+                    advice_prompt = f"""
+你是亚马逊跨境电商资深运营，下面是商品买家负面痛点统计：
+{json.dumps(data, ensure_ascii=False, indent=2)}
+请根据这份痛点数据，给出清晰、落地的改进建议，分产品改进、物流优化、Listing文案调整三个板块，用简洁专业的中文输出，适合卖家直接参考。
+"""
+                    advice_resp = client.chat.completions.create(
+                        model="glm-4-flash",
+                        temperature=0.4,
+                        messages=[{"role":"user","content":advice_prompt}]
+                    )
+                    st.write(advice_resp.choices[0].message.content)
             else:
                 raise Exception("找不到合法JSON")
         except Exception as e:
             st.warning("解析JSON失败，无法自动生成图表，请检查大模型返回格式")
+            st.error(f"错误详情：{str(e)}")
 
 # ========== Tab2：询盘邮件生成 ==========
 with tab2:
